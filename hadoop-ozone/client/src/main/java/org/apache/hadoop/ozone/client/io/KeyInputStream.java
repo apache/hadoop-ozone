@@ -35,6 +35,7 @@ import org.apache.hadoop.fs.CanUnbuffer;
 import org.apache.hadoop.fs.FSExceptionMessages;
 import org.apache.hadoop.fs.Seekable;
 import org.apache.hadoop.hdds.client.BlockID;
+import org.apache.hadoop.hdds.scm.OzoneClientConfig;
 import org.apache.hadoop.hdds.scm.XceiverClientFactory;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.storage.BlockInputStream;
@@ -93,20 +94,22 @@ public class KeyInputStream extends InputStream
    */
   public static LengthInputStream getFromOmKeyInfo(OmKeyInfo keyInfo,
       XceiverClientFactory xceiverClientFactory,
-      boolean verifyChecksum,  Function<OmKeyInfo, OmKeyInfo> retryFunction) {
+      boolean verifyChecksum,  Function<OmKeyInfo, OmKeyInfo> retryFunction,
+      OzoneClientConfig conf) {
     List<OmKeyLocationInfo> keyLocationInfos = keyInfo
         .getLatestVersionLocations().getBlocksLatestVersionOnly();
 
     KeyInputStream keyInputStream = new KeyInputStream();
     keyInputStream.initialize(keyInfo, keyLocationInfos,
-        xceiverClientFactory, verifyChecksum, retryFunction);
+        xceiverClientFactory, verifyChecksum, retryFunction, conf);
 
     return new LengthInputStream(keyInputStream, keyInputStream.length);
   }
 
   public static List<LengthInputStream> getStreamsFromKeyInfo(OmKeyInfo keyInfo,
       XceiverClientFactory xceiverClientFactory, boolean verifyChecksum,
-      Function<OmKeyInfo, OmKeyInfo> retryFunction) {
+      Function<OmKeyInfo, OmKeyInfo> retryFunction,
+      OzoneClientConfig conf) {
     List<OmKeyLocationInfo> keyLocationInfos = keyInfo
         .getLatestVersionLocations().getBlocksLatestVersionOnly();
 
@@ -137,7 +140,7 @@ public class KeyInputStream extends InputStream
         partsToBlocksMap.entrySet()) {
       KeyInputStream keyInputStream = new KeyInputStream();
       keyInputStream.initialize(keyInfo, entry.getValue(),
-          xceiverClientFactory, verifyChecksum, retryFunction);
+          xceiverClientFactory, verifyChecksum, retryFunction, conf);
       lengthInputStreams.add(new LengthInputStream(keyInputStream,
           partsLengthMap.get(entry.getKey())));
     }
@@ -148,7 +151,8 @@ public class KeyInputStream extends InputStream
   private synchronized void initialize(OmKeyInfo keyInfo,
       List<OmKeyLocationInfo> blockInfos,
       XceiverClientFactory xceiverClientFactory,
-      boolean verifyChecksum,  Function<OmKeyInfo, OmKeyInfo> retryFunction) {
+      boolean verifyChecksum,  Function<OmKeyInfo, OmKeyInfo> retryFunction,
+      OzoneClientConfig conf) {
     this.key = keyInfo.getKeyName();
     this.blockOffsets = new long[blockInfos.size()];
     long keyLength = 0;
@@ -176,7 +180,7 @@ public class KeyInputStream extends InputStream
             } else {
               return null;
             }
-          });
+          }, conf);
 
       this.blockOffsets[i] = keyLength;
       keyLength += omKeyLocationInfo.getLength();
@@ -193,11 +197,12 @@ public class KeyInputStream extends InputStream
   private synchronized void addStream(OmKeyLocationInfo blockInfo,
       XceiverClientFactory xceiverClientFactory,
       boolean verifyChecksum,
-      Function<OmKeyLocationInfo, Pipeline> refreshPipelineFunction) {
+      Function<OmKeyLocationInfo, Pipeline> refreshPipelineFunction,
+      OzoneClientConfig conf) {
     blockStreams.add(new BlockInputStream(blockInfo.getBlockID(),
         blockInfo.getLength(), blockInfo.getPipeline(), blockInfo.getToken(),
         verifyChecksum, xceiverClientFactory,
-        blockID -> refreshPipelineFunction.apply(blockInfo)));
+        blockID -> refreshPipelineFunction.apply(blockInfo), conf));
   }
 
   @VisibleForTesting

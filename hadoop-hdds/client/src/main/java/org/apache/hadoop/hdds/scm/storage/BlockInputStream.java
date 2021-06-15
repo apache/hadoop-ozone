@@ -35,10 +35,12 @@ import org.apache.hadoop.fs.Seekable;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.client.StandaloneReplicationConfig;
+import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ChunkInfo;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.DatanodeBlockID;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.GetBlockResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
+import org.apache.hadoop.hdds.scm.OzoneClientConfig;
 import org.apache.hadoop.hdds.scm.XceiverClientFactory;
 import org.apache.hadoop.hdds.scm.XceiverClientSpi;
 import org.apache.hadoop.hdds.scm.client.HddsClientUtils;
@@ -109,11 +111,14 @@ public class BlockInputStream extends InputStream
   private int chunkIndexOfPrevPosition;
 
   private final Function<BlockID, Pipeline> refreshPipelineFunction;
+  private boolean smallBlock = false;
+  private final OzoneClientConfig clientConfig;
 
   public BlockInputStream(BlockID blockId, long blockLen, Pipeline pipeline,
       Token<OzoneBlockTokenIdentifier> token, boolean verifyChecksum,
       XceiverClientFactory xceiverClientFactory,
-      Function<BlockID, Pipeline> refreshPipelineFunction) {
+      Function<BlockID, Pipeline> refreshPipelineFunction,
+      OzoneClientConfig clientConfig) {
     this.blockID = blockId;
     this.length = blockLen;
     this.pipeline = pipeline;
@@ -121,15 +126,25 @@ public class BlockInputStream extends InputStream
     this.verifyChecksum = verifyChecksum;
     this.xceiverClientFactory = xceiverClientFactory;
     this.refreshPipelineFunction = refreshPipelineFunction;
+    if (clientConfig != null) {
+      this.smallBlock = (length <= clientConfig.getSmallBlockThreshold());
+    }
+    this.clientConfig = clientConfig;
   }
 
   public BlockInputStream(BlockID blockId, long blockLen, Pipeline pipeline,
-                          Token<OzoneBlockTokenIdentifier> token,
-                          boolean verifyChecksum,
-                          XceiverClientFactory xceiverClientFactory
-  ) {
+      Token<OzoneBlockTokenIdentifier> token, boolean verifyChecksum,
+      XceiverClientFactory xceiverClientFactory,
+      Function<BlockID, Pipeline> refreshPipelineFunction) {
     this(blockId, blockLen, pipeline, token, verifyChecksum,
-        xceiverClientFactory, null);
+        xceiverClientFactory, refreshPipelineFunction, null);
+  }
+
+  public BlockInputStream(BlockID blockId, long blockLen, Pipeline pipeline,
+      Token<OzoneBlockTokenIdentifier> token, boolean verifyChecksum,
+      XceiverClientFactory xceiverClientFactory) {
+    this(blockId, blockLen, pipeline, token, verifyChecksum,
+        xceiverClientFactory, null, null);
   }
   /**
    * Initialize the BlockInputStream. Get the BlockData (list of chunks) from
@@ -143,11 +158,24 @@ public class BlockInputStream extends InputStream
     }
 
     List<ChunkInfo> chunks;
-    try {
-      chunks = getChunkInfos();
-    } catch (ContainerNotFoundException ioEx) {
-      refreshPipeline(ioEx);
-      chunks = getChunkInfos();
+    if (smallBlock) {
+      ChunkInfo chunkInfo = ChunkInfo.newBuilder()
+          .setChunkName(blockID.getLocalID() + "_chunk_" + (chunkIndex + 1))
+          .setOffset(0L).setLen(length)
+          .setChecksumData(ContainerProtos.ChecksumData.newBuilder()
+              .setBytesPerChecksum(clientConfig.getBytesPerChecksum())
+              .setType(clientConfig.getChecksumType())
+              .build())
+          .build();
+      chunks = new ArrayList<>();
+      chunks.add(chunkInfo);
+    } else {
+      try {
+        chunks = getChunkInfos();
+      } catch (ContainerNotFoundException ioEx) {
+        refreshPipeline(ioEx);
+        chunks = getChunkInfos();
+      }
     }
 
     if (chunks != null && !chunks.isEmpty()) {
@@ -167,8 +195,8 @@ public class BlockInputStream extends InputStream
       this.chunkIndex = 0;
 
       if (blockPosition > 0) {
-        // Stream was seeked to blockPosition before initialization. Seek to the
-        // blockPosition now.
+        // Stream was seeked to blockPosition before initialization. Seek to
+        // the blockPosition now.
         seek(blockPosition);
       }
     }
@@ -245,7 +273,7 @@ public class BlockInputStream extends InputStream
   }
 
   protected ChunkInputStream createChunkInputStream(ChunkInfo chunkInfo) {
-    return new ChunkInputStream(chunkInfo, blockID,
+    return new ChunkInputStream(chunkInfo, blockID, this,
         xceiverClientFactory, () -> pipeline, verifyChecksum, token);
   }
 
@@ -478,6 +506,10 @@ public class BlockInputStream extends InputStream
   @VisibleForTesting
   synchronized long getBlockPosition() {
     return blockPosition;
+  }
+
+  public boolean isSmallBlock() {
+    return this.smallBlock;
   }
 
   @Override

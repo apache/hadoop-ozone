@@ -22,6 +22,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
@@ -36,6 +37,7 @@ import org.apache.hadoop.hdds.scm.node.states.NodeNotFoundException;
 import org.apache.hadoop.ozone.client.io.KeyInputStream;
 import org.apache.hadoop.ozone.container.TestHelper;
 import org.apache.hadoop.ozone.container.common.impl.ChunkLayOutVersion;
+import org.apache.hadoop.ozone.container.keyvalue.ChunkLayoutTestInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
@@ -59,8 +61,8 @@ public class TestKeyInputStream extends TestInputStreamBase {
   private static final Logger LOG =
       LoggerFactory.getLogger(TestKeyInputStream.class);
 
-  public TestKeyInputStream(ChunkLayOutVersion layout) {
-    super(layout);
+  public TestKeyInputStream(ChunkLayOutVersion layout, long blockThreshold) {
+    super(layout, blockThreshold);
   }
 
   /**
@@ -175,8 +177,13 @@ public class TestKeyInputStream extends TestInputStreamBase {
 
     // Since we reading data from index 150 to 250 and the chunk boundary is
     // 100 bytes, we need to read 2 chunks.
-    Assert.assertEquals(readChunkCount + 2,
-        metrics.getContainerOpCountMetrics(ContainerProtos.Type.ReadChunk));
+    if (isSmallBlockRead(Math.min(dataLength, BLOCK_SIZE))) {
+      Assert.assertEquals(1, metrics.getContainerOpCountMetrics(
+          ContainerProtos.Type.GetSmallFile));
+    } else {
+      Assert.assertEquals(readChunkCount + 2,
+          metrics.getContainerOpCountMetrics(ContainerProtos.Type.ReadChunk));
+    }
 
     keyInputStream.close();
 
@@ -271,7 +278,8 @@ public class TestKeyInputStream extends TestInputStreamBase {
 
     // Since we reading data from index 150 to 250 and the chunk boundary is
     // 100 bytes, we need to read 2 chunks.
-    Assert.assertEquals(readChunkCount + 2,
+    Assert.assertEquals(smallBlockThreshold > CHUNK_SIZE ?
+            readChunkCount : readChunkCount + 2,
         metrics.getContainerOpCountMetrics(ContainerProtos.Type.ReadChunk));
 
     keyInputStream.close();

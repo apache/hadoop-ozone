@@ -124,6 +124,14 @@ public class OzoneClientConfig {
       tags = ConfigTag.CLIENT)
   private boolean checksumVerify = true;
 
+  @Config(key = "small.block.threshold",
+      defaultValue = "1MB",
+      type = ConfigType.SIZE,
+      description = "Block will be treated as small block if its size is " +
+          "smaller than this threshold",
+      tags = ConfigTag.CLIENT)
+  private long smallBlockThreshold =  bytesPerChecksum;
+
   @PostConstruct
   private void validate() {
     Preconditions.checkState(streamBufferSize > 0);
@@ -226,5 +234,13 @@ public class OzoneClientConfig {
 
   public int getBufferIncrement() {
     return bufferIncrement;
+  }
+
+  public long getSmallBlockThreshold() {
+    return this.smallBlockThreshold;
+  }
+
+  public void setSmallBlockThreshold(long threshold) {
+    this.smallBlockThreshold = threshold;
   }
 }
