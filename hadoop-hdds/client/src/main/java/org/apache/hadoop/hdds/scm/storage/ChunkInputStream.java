@@ -480,8 +480,7 @@ public class ChunkInputStream extends InputStream
    * Send RPC call to get the small file from the container.
    */
   @VisibleForTesting
-  protected ByteBuffer[] readBlockWithChunk()
-      throws IOException {
+  protected ByteBuffer[] readBlockWithChunk() throws IOException {
     ContainerProtos.GetSmallFileResponseProto response;
     try {
       response = ContainerProtocolCalls.readSmallFile(

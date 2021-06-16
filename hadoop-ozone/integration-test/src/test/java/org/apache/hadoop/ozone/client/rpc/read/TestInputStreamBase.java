@@ -44,7 +44,6 @@ import org.apache.hadoop.ozone.common.utils.BufferUtils;
 import org.apache.hadoop.ozone.container.ContainerTestHelper;
 import org.apache.hadoop.ozone.container.TestHelper;
 import org.apache.hadoop.ozone.container.common.impl.ChunkLayOutVersion;
-import org.apache.hadoop.ozone.container.keyvalue.ChunkLayoutTestInfo;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -74,8 +73,8 @@ public abstract class TestInputStreamBase {
   private String bucketName;
   private String keyString;
 
-  final private ChunkLayOutVersion chunkLayout;
-  final protected long smallBlockThreshold;
+  private ChunkLayOutVersion chunkLayout;
+  protected final long smallBlockThreshold;
   private static final Random RAND = new Random();
 
   protected static final int CHUNK_SIZE = 1024 * 1024;          // 1MB

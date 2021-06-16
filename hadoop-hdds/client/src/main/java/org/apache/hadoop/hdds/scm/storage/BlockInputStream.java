@@ -114,6 +114,7 @@ public class BlockInputStream extends InputStream
   private boolean smallBlock = false;
   private final OzoneClientConfig clientConfig;
 
+  @SuppressWarnings("parameternumber")
   public BlockInputStream(BlockID blockId, long blockLen, Pipeline pipeline,
       Token<OzoneBlockTokenIdentifier> token, boolean verifyChecksum,
       XceiverClientFactory xceiverClientFactory,
@@ -151,11 +152,22 @@ public class BlockInputStream extends InputStream
    * the Container and create the ChunkInputStreams for each Chunk in the Block.
    */
   public synchronized void initialize() throws IOException {
-
-    // Pre-check that the stream has not been intialized already
+    // Pre-check that the stream has not been initialized already
     if (initialized) {
       return;
     }
+
+    // Initialize pipeline and client.
+    // irrespective of the container state, we will always read via Standalone
+    // protocol.
+    if (pipeline.getType() != HddsProtos.ReplicationType.STAND_ALONE) {
+      pipeline = Pipeline.newBuilder(pipeline)
+          .setReplicationConfig(new StandaloneReplicationConfig(
+              ReplicationConfig
+                  .getLegacyFactor(pipeline.getReplicationConfig())))
+          .build();
+    }
+    acquireClient();
 
     List<ChunkInfo> chunks;
     if (smallBlock) {
@@ -225,16 +237,6 @@ public class BlockInputStream extends InputStream
    * @return List of chunks in this block.
    */
   protected List<ChunkInfo> getChunkInfos() throws IOException {
-    // irrespective of the container state, we will always read via Standalone
-    // protocol.
-    if (pipeline.getType() != HddsProtos.ReplicationType.STAND_ALONE) {
-      pipeline = Pipeline.newBuilder(pipeline)
-          .setReplicationConfig(new StandaloneReplicationConfig(
-              ReplicationConfig
-                  .getLegacyFactor(pipeline.getReplicationConfig())))
-          .build();
-    }
-    acquireClient();
     boolean success = false;
     List<ChunkInfo> chunks;
     try {

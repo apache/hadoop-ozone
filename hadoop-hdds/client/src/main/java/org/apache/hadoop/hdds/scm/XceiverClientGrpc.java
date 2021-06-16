@@ -382,10 +382,10 @@ public class XceiverClientGrpc extends XceiverClientSpi {
       } catch (IOException e) {
         ioException = e;
         responseProto = null;
-        LOG.debug("Failed to execute command {} on datanode {}",
+        LOG.error("Failed to execute command {} on datanode {}",
             request, dn, e);
       } catch (ExecutionException e) {
-        LOG.debug("Failed to execute command {} on datanode {}",
+        LOG.error("Failed to execute command {} on datanode {}",
             request, dn, e);
         if (Status.fromThrowable(e.getCause()).getCode()
             == Status.UNAUTHENTICATED.getCode()) {
