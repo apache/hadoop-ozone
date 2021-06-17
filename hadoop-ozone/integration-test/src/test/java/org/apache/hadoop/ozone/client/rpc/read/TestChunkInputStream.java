@@ -57,7 +57,7 @@ public class TestChunkInputStream extends TestInputStreamBase {
     chunk0Stream.read(new byte[1]);
     boolean isSmallBlockRead = isSmallBlockRead(BLOCK_SIZE);
     long cachedBufferCount = isSmallBlockRead ?
-        Math.min(smallBlockThreshold, BLOCK_SIZE) / BYTES_PER_CHECKSUM : 1;
+        Math.min(getSmallBlockThreshold(), BLOCK_SIZE) / BYTES_PER_CHECKSUM : 1;
     checkBufferSizeAndCapacity(chunk0Stream.getCachedBuffers(),
         cachedBufferCount, 0, BYTES_PER_CHECKSUM);
 
@@ -124,7 +124,8 @@ public class TestChunkInputStream extends TestInputStreamBase {
     int dataLength = CHUNK_SIZE;
     boolean isSmallBlockRead = isSmallBlockRead(dataLength);
     long cachedBufferCount = isSmallBlockRead ? Math.min(Math.min(
-        smallBlockThreshold, BLOCK_SIZE), dataLength)/ BYTES_PER_CHECKSUM : 1;
+        getSmallBlockThreshold(), BLOCK_SIZE), dataLength)/ BYTES_PER_CHECKSUM
+        : 1;
 
     byte[] inputData = writeRandomBytes(keyName, dataLength);
 

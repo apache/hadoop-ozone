@@ -276,7 +276,7 @@ public class TestKeyInputStream extends TestInputStreamBase {
 
     // Since we reading data from index 150 to 250 and the chunk boundary is
     // 100 bytes, we need to read 2 chunks.
-    Assert.assertEquals(smallBlockThreshold > CHUNK_SIZE ?
+    Assert.assertEquals(getSmallBlockThreshold() > CHUNK_SIZE ?
             readChunkCount : readChunkCount + 2,
         metrics.getContainerOpCountMetrics(ContainerProtos.Type.ReadChunk));
 
