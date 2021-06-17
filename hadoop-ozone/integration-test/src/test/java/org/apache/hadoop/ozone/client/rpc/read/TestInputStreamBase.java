@@ -89,9 +89,11 @@ public abstract class TestInputStreamBase {
   @Parameterized.Parameters
   public static Collection<Object[]> layouts() {
     return Arrays.asList(new Object[][] {
+        {ChunkLayOutVersion.FILE_PER_CHUNK, 0},
         {ChunkLayOutVersion.FILE_PER_CHUNK, BYTES_PER_CHECKSUM},
         {ChunkLayOutVersion.FILE_PER_CHUNK, CHUNK_SIZE},
         {ChunkLayOutVersion.FILE_PER_CHUNK, BLOCK_SIZE},
+        {ChunkLayOutVersion.FILE_PER_BLOCK, 0},
         {ChunkLayOutVersion.FILE_PER_BLOCK, BYTES_PER_CHECKSUM},
         {ChunkLayOutVersion.FILE_PER_BLOCK, CHUNK_SIZE},
         {ChunkLayOutVersion.FILE_PER_BLOCK, BLOCK_SIZE}
