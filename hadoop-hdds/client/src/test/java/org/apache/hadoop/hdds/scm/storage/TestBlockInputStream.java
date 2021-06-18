@@ -76,6 +76,8 @@ public class TestBlockInputStream {
   private int blockSize;
   private List<ChunkInfo> chunks;
   private Map<String, byte[]> chunkDataMap;
+  private Pipeline pipeline;
+  private XceiverClientFactory clientFactory;
 
   @Mock
   private Function<BlockID, Pipeline> refreshPipeline;
@@ -85,9 +87,11 @@ public class TestBlockInputStream {
     BlockID blockID = new BlockID(new ContainerBlockID(1, 1));
     checksum = new Checksum(ChecksumType.NONE, CHUNK_SIZE);
     createChunkList(5);
+    pipeline = MockPipeline.createSingleNodePipeline();
+    clientFactory = mock(XceiverClientFactory.class);
 
-    blockStream = new DummyBlockInputStream(blockID, blockSize, null, null,
-        false, null, refreshPipeline, chunks, chunkDataMap);
+    blockStream = new DummyBlockInputStream(blockID, blockSize, pipeline, null,
+        false, clientFactory, refreshPipeline, chunks, chunkDataMap);
   }
 
   /**
@@ -263,8 +267,8 @@ public class TestBlockInputStream {
     createChunkList(5);
     BlockInputStream blockInputStreamWithRetry =
         new DummyBlockInputStreamWithRetry(blockID, blockSize,
-            MockPipeline.createSingleNodePipeline(), null,
-            false, null, chunks, chunkDataMap, isRefreshed);
+            pipeline, null,
+            false, clientFactory, chunks, chunkDataMap, isRefreshed);
 
     try {
       Assert.assertFalse(isRefreshed.get());
@@ -296,7 +300,7 @@ public class TestBlockInputStream {
         .thenReturn(newPipeline);
 
     BlockInputStream subject = new DummyBlockInputStream(blockID, blockSize,
-        pipeline, null, false, null, refreshPipeline, chunks, null) {
+        pipeline, null, false, clientFactory, refreshPipeline, chunks, null) {
       @Override
       protected ChunkInputStream createChunkInputStream(ChunkInfo chunkInfo) {
         return stream;
@@ -334,7 +338,7 @@ public class TestBlockInputStream {
         .thenAnswer(invocation -> samePipelineWithNewId(pipeline));
 
     BlockInputStream subject = new DummyBlockInputStream(blockID, blockSize,
-        pipeline, null, false, null, refreshPipeline, chunks, null) {
+        pipeline, null, false, clientFactory, refreshPipeline, chunks, null) {
       @Override
       protected ChunkInputStream createChunkInputStream(ChunkInfo chunkInfo) {
         return stream;
@@ -360,7 +364,6 @@ public class TestBlockInputStream {
   public void testReadNotRetriedOnOtherException() throws Exception {
     // GIVEN
     BlockID blockID = new BlockID(new ContainerBlockID(1, 1));
-    Pipeline pipeline = MockPipeline.createSingleNodePipeline();
 
     final int len = 200;
     final ChunkInputStream stream = mock(ChunkInputStream.class);
@@ -370,7 +373,7 @@ public class TestBlockInputStream {
         .thenReturn((long) len);
 
     BlockInputStream subject = new DummyBlockInputStream(blockID, blockSize,
-        pipeline, null, false, null, refreshPipeline, chunks, null) {
+        pipeline, null, false, clientFactory, refreshPipeline, chunks, null) {
       @Override
       protected ChunkInputStream createChunkInputStream(ChunkInfo chunkInfo) {
         return stream;
@@ -402,11 +405,11 @@ public class TestBlockInputStream {
   public void testRefreshOnReadFailureAfterUnbuffer() throws Exception {
     // GIVEN
     BlockID blockID = new BlockID(new ContainerBlockID(1, 1));
-    Pipeline pipeline = MockPipeline.createSingleNodePipeline();
+    Pipeline oldPipeline = MockPipeline.createSingleNodePipeline();
     Pipeline newPipeline = MockPipeline.createSingleNodePipeline();
     XceiverClientFactory clientFactory = mock(XceiverClientFactory.class);
     XceiverClientSpi client = mock(XceiverClientSpi.class);
-    when(clientFactory.acquireClientForReadData(pipeline))
+    when(clientFactory.acquireClientForReadData(oldPipeline))
         .thenReturn(client);
 
     final int len = 200;
@@ -421,10 +424,9 @@ public class TestBlockInputStream {
         .thenReturn(newPipeline);
 
     BlockInputStream subject = new BlockInputStream(blockID, blockSize,
-        pipeline, null, false, clientFactory, refreshPipeline) {
+        oldPipeline, null, false, clientFactory, refreshPipeline) {
       @Override
       protected List<ChunkInfo> getChunkInfos() throws IOException {
-        acquireClient();
         return chunks;
       }
 
@@ -445,7 +447,7 @@ public class TestBlockInputStream {
       // THEN
       Assert.assertEquals(len, bytesRead);
       verify(refreshPipeline).apply(blockID);
-      verify(clientFactory).acquireClientForReadData(pipeline);
+      verify(clientFactory).acquireClientForReadData(oldPipeline);
       verify(clientFactory).releaseClient(client, false);
     } finally {
       subject.close();
