@@ -17,8 +17,6 @@
  */
 package org.apache.hadoop.ozone.s3.signature;
 
-import javax.ws.rs.container.ContainerRequestContext;
-import javax.ws.rs.core.MultivaluedMap;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.URI;
@@ -37,6 +35,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Iterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -74,19 +73,6 @@ public final class StringToSignProducer {
           .withZone(ZoneOffset.UTC);
 
   private StringToSignProducer() {
-  }
-
-  public static String createSignatureBase(
-      SignatureInfo signatureInfo,
-      ContainerRequestContext context
-  ) throws Exception {
-    return createSignatureBase(signatureInfo,
-        context.getUriInfo().getRequestUri().getScheme(),
-        context.getMethod(),
-        context.getUriInfo().getRequestUri().getPath(),
-        LowerCaseKeyStringMap.fromHeaderMap(context.getHeaders()),
-        fromMultiValueToSingleValueMap(
-            context.getUriInfo().getQueryParameters()));
   }
 
   @VisibleForTesting
@@ -137,11 +123,17 @@ public final class StringToSignProducer {
   }
 
   public static Map<String, String> fromMultiValueToSingleValueMap(
-      MultivaluedMap<String, String> queryParameters
+      Map<String, String[]> queryParameters
   ) {
     Map<String, String> result = new HashMap<>();
-    for (String key : queryParameters.keySet()) {
-      result.put(key, queryParameters.getFirst(key));
+    /*for (String key : queryParameters.keySet()) {
+      result.put(key, queryParameters.get(key)[0]);
+    }*/
+    Iterator<Map.Entry<String, String[]> > entrySet = queryParameters
+        .entrySet().iterator();
+    while (entrySet.hasNext()) {
+      Map.Entry<String, String[]> entry = entrySet.next();
+      result.put(entry.getKey(), entry.getValue()[0]);
     }
     return result;
   }
