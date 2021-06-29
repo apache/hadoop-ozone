@@ -21,6 +21,8 @@ package org.apache.hadoop.hdds.scm.storage;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import java.util.ArrayList;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.fs.ByteBufferReadable;
 import org.apache.hadoop.fs.CanUnbuffer;
@@ -58,6 +60,8 @@ import org.slf4j.LoggerFactory;
  * container. Each chunk may contain multiple underlying {@link ByteBuffer}
  * instances.
  */
+@SuppressFBWarnings(value = "IS2_INCONSISTENT_SYNC",
+    justification = "All Public APIs are synchronized")
 public class ChunkInputStream extends InputStream
     implements Seekable, CanUnbuffer, ByteBufferReadable {
 
