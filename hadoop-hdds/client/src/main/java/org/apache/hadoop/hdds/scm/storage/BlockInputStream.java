@@ -111,41 +111,31 @@ public class BlockInputStream extends InputStream
   private int chunkIndexOfPrevPosition;
 
   private final Function<BlockID, Pipeline> refreshPipelineFunction;
-  private boolean smallBlock = false;
+  private boolean smallBlock;
   private final OzoneClientConfig clientConfig;
 
   @SuppressWarnings("parameternumber")
   public BlockInputStream(BlockID blockId, long blockLen, Pipeline pipeline,
-      Token<OzoneBlockTokenIdentifier> token, boolean verifyChecksum,
+      Token<OzoneBlockTokenIdentifier> token,  OzoneClientConfig clientConfig,
       XceiverClientFactory xceiverClientFactory,
-      Function<BlockID, Pipeline> refreshPipelineFunction,
-      OzoneClientConfig clientConfig) {
+      Function<BlockID, Pipeline> refreshPipelineFunction) {
     this.blockID = blockId;
     this.length = blockLen;
     this.pipeline = pipeline;
     this.token = token;
-    this.verifyChecksum = verifyChecksum;
+    Preconditions.checkArgument(clientConfig != null);
+    this.verifyChecksum = clientConfig.isChecksumVerify();
     this.xceiverClientFactory = xceiverClientFactory;
     this.refreshPipelineFunction = refreshPipelineFunction;
-    if (clientConfig != null) {
-      this.smallBlock = (length <= clientConfig.getSmallBlockThreshold());
-    }
+    this.smallBlock = (length <= clientConfig.getSmallBlockThreshold());
     this.clientConfig = clientConfig;
   }
 
   public BlockInputStream(BlockID blockId, long blockLen, Pipeline pipeline,
-      Token<OzoneBlockTokenIdentifier> token, boolean verifyChecksum,
-      XceiverClientFactory xceiverClientFactory,
-      Function<BlockID, Pipeline> refreshPipelineFunction) {
-    this(blockId, blockLen, pipeline, token, verifyChecksum,
-        xceiverClientFactory, refreshPipelineFunction, null);
-  }
-
-  public BlockInputStream(BlockID blockId, long blockLen, Pipeline pipeline,
-      Token<OzoneBlockTokenIdentifier> token, boolean verifyChecksum,
+      Token<OzoneBlockTokenIdentifier> token, OzoneClientConfig clientConfig,
       XceiverClientFactory xceiverClientFactory) {
-    this(blockId, blockLen, pipeline, token, verifyChecksum,
-        xceiverClientFactory, null, null);
+    this(blockId, blockLen, pipeline, token, clientConfig,
+        xceiverClientFactory, null);
   }
   /**
    * Initialize the BlockInputStream. Get the BlockData (list of chunks) from
@@ -157,20 +147,11 @@ public class BlockInputStream extends InputStream
       return;
     }
 
-    // Initialize pipeline and client.
-    // irrespective of the container state, we will always read via Standalone
-    // protocol.
-    if (pipeline.getType() != HddsProtos.ReplicationType.STAND_ALONE) {
-      pipeline = Pipeline.newBuilder(pipeline)
-          .setReplicationConfig(new StandaloneReplicationConfig(
-              ReplicationConfig
-                  .getLegacyFactor(pipeline.getReplicationConfig())))
-          .build();
-    }
-    acquireClient();
+    initPipelineAndClient();
 
     List<ChunkInfo> chunks;
     if (smallBlock) {
+      // Build a ChunkInfo for the small block
       ChunkInfo chunkInfo = ChunkInfo.newBuilder()
           .setChunkName(blockID.getLocalID() + "_chunk_" + (chunkIndex + 1))
           .setOffset(0L).setLen(length)
@@ -226,10 +207,26 @@ public class BlockInputStream extends InputStream
       } else {
         LOG.debug("New pipeline got for block {}", blockID);
         this.pipeline = newPipeline;
+        initPipelineAndClient();
       }
     } else {
       throw cause;
     }
+  }
+
+  private void initPipelineAndClient() throws IOException {
+    // Initialize pipeline and client.
+    // irrespective of the container state, we will always read via Standalone
+    // protocol.
+    if (pipeline.getType() != HddsProtos.ReplicationType.STAND_ALONE) {
+      pipeline = Pipeline.newBuilder(pipeline)
+          .setReplicationConfig(new StandaloneReplicationConfig(
+              ReplicationConfig
+                  .getLegacyFactor(pipeline.getReplicationConfig())))
+          .build();
+    }
+
+    xceiverClient = xceiverClientFactory.acquireClientForReadData(pipeline);
   }
 
   /**
@@ -259,10 +256,6 @@ public class BlockInputStream extends InputStream
     }
 
     return chunks;
-  }
-
-  protected void acquireClient() throws IOException {
-    xceiverClient = xceiverClientFactory.acquireClientForReadData(pipeline);
   }
 
   /**

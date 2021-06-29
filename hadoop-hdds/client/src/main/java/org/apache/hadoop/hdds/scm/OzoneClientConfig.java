@@ -157,7 +157,9 @@ public class OzoneClientConfig {
       bytesPerChecksum =
           OzoneConfigKeys.OZONE_CLIENT_BYTES_PER_CHECKSUM_MIN_SIZE;
     }
-
+    Preconditions.checkState(smallBlockThreshold % bytesPerChecksum == 0,
+        "expected small block threshold(%s) to be a multiple of checksum size"
+            + "(%s)", smallBlockThreshold, bytesPerChecksum);
   }
 
   public long getStreamBufferFlushSize() {

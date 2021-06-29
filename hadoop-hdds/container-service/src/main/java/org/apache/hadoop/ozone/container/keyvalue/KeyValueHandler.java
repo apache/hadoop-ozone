@@ -829,8 +829,9 @@ public class KeyValueHandler extends Handler {
         ChunkBuffer data = chunkManager.readChunk(kvContainer, blockID,
             chunkInfo, dispatcherContext);
         dataBuffers.addAll(data.toByteStringList(byteBufferToByteString));
-        chunk.getChecksumData().getChecksumsList().stream().forEach(
-            (ck -> checksumBuilder.addChecksums(ck)));
+        for (ByteString ck : chunk.getChecksumData().getChecksumsList()) {
+          checksumBuilder.addChecksums(ck);
+        }
         if (firstChunk == null) {
           firstChunk = chunk;
         }

@@ -24,6 +24,7 @@ import org.apache.hadoop.hdds.client.ContainerBlockID;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ChecksumType;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ChunkInfo;
+import org.apache.hadoop.hdds.scm.OzoneClientConfig;
 import org.apache.hadoop.hdds.scm.XceiverClientFactory;
 import org.apache.hadoop.hdds.scm.XceiverClientSpi;
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
@@ -78,6 +79,7 @@ public class TestBlockInputStream {
   private Map<String, byte[]> chunkDataMap;
   private Pipeline pipeline;
   private XceiverClientFactory clientFactory;
+  private OzoneClientConfig clientConfig;
 
   @Mock
   private Function<BlockID, Pipeline> refreshPipeline;
@@ -89,17 +91,19 @@ public class TestBlockInputStream {
     createChunkList(5);
     pipeline = MockPipeline.createSingleNodePipeline();
     clientFactory = mock(XceiverClientFactory.class);
+    clientConfig = new OzoneClientConfig();
+    clientConfig.setChecksumVerify(false);
+    clientConfig.setSmallBlockThreshold(0);
 
     blockStream = new DummyBlockInputStream(blockID, blockSize, pipeline, null,
-        false, clientFactory, refreshPipeline, chunks, chunkDataMap);
+        clientConfig, clientFactory, refreshPipeline, chunks, chunkDataMap);
   }
 
   /**
    * Create a mock list of chunks. The first n-1 chunks of length CHUNK_SIZE
    * and the last chunk with length CHUNK_SIZE/2.
    */
-  private void createChunkList(int numChunks)
-      throws Exception {
+  private void createChunkList(int numChunks) throws Exception {
 
     chunks = new ArrayList<>(numChunks);
     chunkDataMap = new HashMap<>();
@@ -108,10 +112,10 @@ public class TestBlockInputStream {
     byte[] byteData;
     String chunkName;
 
-    for (i = 0; i < numChunks; i++) {
-      chunkName = "chunk-" + i;
+    for (i = 1; i <= numChunks; i++) {
+      chunkName = i + "_chunk_" + i;
       chunkLen = CHUNK_SIZE;
-      if (i == numChunks - 1) {
+      if (i == numChunks) {
         chunkLen = CHUNK_SIZE / 2;
       }
       byteData = generateRandomData(chunkLen);
@@ -268,7 +272,7 @@ public class TestBlockInputStream {
     BlockInputStream blockInputStreamWithRetry =
         new DummyBlockInputStreamWithRetry(blockID, blockSize,
             pipeline, null,
-            false, clientFactory, chunks, chunkDataMap, isRefreshed);
+            clientConfig, clientFactory, chunks, chunkDataMap, isRefreshed);
 
     try {
       Assert.assertFalse(isRefreshed.get());
@@ -285,7 +289,6 @@ public class TestBlockInputStream {
   public void testRefreshOnReadFailure() throws Exception {
     // GIVEN
     BlockID blockID = new BlockID(new ContainerBlockID(1, 1));
-    Pipeline pipeline = MockPipeline.createSingleNodePipeline();
     Pipeline newPipeline = MockPipeline.createSingleNodePipeline();
 
     final int len = 200;
@@ -300,7 +303,8 @@ public class TestBlockInputStream {
         .thenReturn(newPipeline);
 
     BlockInputStream subject = new DummyBlockInputStream(blockID, blockSize,
-        pipeline, null, false, clientFactory, refreshPipeline, chunks, null) {
+        pipeline, null, clientConfig, clientFactory, refreshPipeline, chunks,
+        null) {
       @Override
       protected ChunkInputStream createChunkInputStream(ChunkInfo chunkInfo) {
         return stream;
@@ -325,7 +329,6 @@ public class TestBlockInputStream {
   public void testRefreshExitsIfPipelineHasSameNodes() throws Exception {
     // GIVEN
     BlockID blockID = new BlockID(new ContainerBlockID(1, 1));
-    Pipeline pipeline = MockPipeline.createSingleNodePipeline();
 
     final int len = 200;
     final ChunkInputStream stream = mock(ChunkInputStream.class);
@@ -338,7 +341,8 @@ public class TestBlockInputStream {
         .thenAnswer(invocation -> samePipelineWithNewId(pipeline));
 
     BlockInputStream subject = new DummyBlockInputStream(blockID, blockSize,
-        pipeline, null, false, clientFactory, refreshPipeline, chunks, null) {
+        pipeline, null, clientConfig, clientFactory, refreshPipeline, chunks,
+        null) {
       @Override
       protected ChunkInputStream createChunkInputStream(ChunkInfo chunkInfo) {
         return stream;
@@ -373,7 +377,8 @@ public class TestBlockInputStream {
         .thenReturn((long) len);
 
     BlockInputStream subject = new DummyBlockInputStream(blockID, blockSize,
-        pipeline, null, false, clientFactory, refreshPipeline, chunks, null) {
+        pipeline, null, clientConfig, clientFactory, refreshPipeline, chunks,
+        null) {
       @Override
       protected ChunkInputStream createChunkInputStream(ChunkInfo chunkInfo) {
         return stream;
@@ -395,8 +400,8 @@ public class TestBlockInputStream {
     }
   }
 
-  private Pipeline samePipelineWithNewId(Pipeline pipeline) {
-    List<DatanodeDetails> reverseOrder = new ArrayList<>(pipeline.getNodes());
+  private Pipeline samePipelineWithNewId(Pipeline p) {
+    List<DatanodeDetails> reverseOrder = new ArrayList<>(p.getNodes());
     Collections.reverse(reverseOrder);
     return MockPipeline.createPipeline(reverseOrder);
   }
@@ -405,11 +410,9 @@ public class TestBlockInputStream {
   public void testRefreshOnReadFailureAfterUnbuffer() throws Exception {
     // GIVEN
     BlockID blockID = new BlockID(new ContainerBlockID(1, 1));
-    Pipeline oldPipeline = MockPipeline.createSingleNodePipeline();
     Pipeline newPipeline = MockPipeline.createSingleNodePipeline();
-    XceiverClientFactory clientFactory = mock(XceiverClientFactory.class);
     XceiverClientSpi client = mock(XceiverClientSpi.class);
-    when(clientFactory.acquireClientForReadData(oldPipeline))
+    when(clientFactory.acquireClientForReadData(pipeline))
         .thenReturn(client);
 
     final int len = 200;
@@ -424,7 +427,7 @@ public class TestBlockInputStream {
         .thenReturn(newPipeline);
 
     BlockInputStream subject = new BlockInputStream(blockID, blockSize,
-        oldPipeline, null, false, clientFactory, refreshPipeline) {
+        pipeline, null, clientConfig, clientFactory, refreshPipeline) {
       @Override
       protected List<ChunkInfo> getChunkInfos() throws IOException {
         return chunks;
@@ -447,7 +450,7 @@ public class TestBlockInputStream {
       // THEN
       Assert.assertEquals(len, bytesRead);
       verify(refreshPipeline).apply(blockID);
-      verify(clientFactory).acquireClientForReadData(oldPipeline);
+      verify(clientFactory).acquireClientForReadData(pipeline);
       verify(clientFactory).releaseClient(client, false);
     } finally {
       subject.close();

@@ -94,14 +94,13 @@ public class KeyInputStream extends InputStream
    */
   public static LengthInputStream getFromOmKeyInfo(OmKeyInfo keyInfo,
       XceiverClientFactory xceiverClientFactory,
-      boolean verifyChecksum,  Function<OmKeyInfo, OmKeyInfo> retryFunction,
-      OzoneClientConfig conf) {
+      Function<OmKeyInfo, OmKeyInfo> retryFunction, OzoneClientConfig conf) {
     List<OmKeyLocationInfo> keyLocationInfos = keyInfo
         .getLatestVersionLocations().getBlocksLatestVersionOnly();
 
     KeyInputStream keyInputStream = new KeyInputStream();
     keyInputStream.initialize(keyInfo, keyLocationInfos,
-        xceiverClientFactory, verifyChecksum, retryFunction, conf);
+        xceiverClientFactory, retryFunction, conf);
 
     return new LengthInputStream(keyInputStream, keyInputStream.length);
   }
@@ -140,7 +139,7 @@ public class KeyInputStream extends InputStream
         partsToBlocksMap.entrySet()) {
       KeyInputStream keyInputStream = new KeyInputStream();
       keyInputStream.initialize(keyInfo, entry.getValue(),
-          xceiverClientFactory, verifyChecksum, retryFunction, conf);
+          xceiverClientFactory, retryFunction, conf);
       lengthInputStreams.add(new LengthInputStream(keyInputStream,
           partsLengthMap.get(entry.getKey())));
     }
@@ -151,8 +150,7 @@ public class KeyInputStream extends InputStream
   private synchronized void initialize(OmKeyInfo keyInfo,
       List<OmKeyLocationInfo> blockInfos,
       XceiverClientFactory xceiverClientFactory,
-      boolean verifyChecksum,  Function<OmKeyInfo, OmKeyInfo> retryFunction,
-      OzoneClientConfig conf) {
+      Function<OmKeyInfo, OmKeyInfo> retryFunction, OzoneClientConfig conf) {
     this.key = keyInfo.getKeyName();
     this.blockOffsets = new long[blockInfos.size()];
     long keyLength = 0;
@@ -166,7 +164,7 @@ public class KeyInputStream extends InputStream
       // We also pass in functional reference which is used to refresh the
       // pipeline info for a given OM Key location info.
       addStream(omKeyLocationInfo, xceiverClientFactory,
-          verifyChecksum, keyLocationInfo -> {
+          keyLocationInfo -> {
             OmKeyInfo newKeyInfo = retryFunction.apply(keyInfo);
             BlockID blockID = keyLocationInfo.getBlockID();
             List<OmKeyLocationInfo> collect =
@@ -196,13 +194,12 @@ public class KeyInputStream extends InputStream
    */
   private synchronized void addStream(OmKeyLocationInfo blockInfo,
       XceiverClientFactory xceiverClientFactory,
-      boolean verifyChecksum,
       Function<OmKeyLocationInfo, Pipeline> refreshPipelineFunction,
       OzoneClientConfig conf) {
     blockStreams.add(new BlockInputStream(blockInfo.getBlockID(),
         blockInfo.getLength(), blockInfo.getPipeline(), blockInfo.getToken(),
-        verifyChecksum, xceiverClientFactory,
-        blockID -> refreshPipelineFunction.apply(blockInfo), conf));
+        conf, xceiverClientFactory,
+        blockID -> refreshPipelineFunction.apply(blockInfo)));
   }
 
   @VisibleForTesting
