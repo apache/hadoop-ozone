@@ -2342,14 +2342,15 @@ public class KeyManagerImpl implements KeyManager {
       iterator.seek(seekKeyInDb);
       int countEntries = 0;
       if (iterator.hasNext()) {
-        if (iterator.key().equals(keyArgs)) {
+        Table.KeyValue<String, OmKeyInfo> entry = iterator.next();
+        if (entry.getKey().equals(keyArgs)) {
           // Skip the key itself, since we are listing inside the directory
           iterator.next();
         }
         // Iterate through seek results
         while (iterator.hasNext() && numEntries - countEntries > 0) {
-          String entryInDb = iterator.key();
-          OmKeyInfo omKeyInfo = iterator.value().getValue();
+          String entryInDb = entry.getKey();
+          OmKeyInfo omKeyInfo = entry.getValue();
           if (entryInDb.startsWith(keyArgs)) {
             String entryKeyName = omKeyInfo.getKeyName();
             if (recursive) {
@@ -2424,9 +2425,7 @@ public class KeyManagerImpl implements KeyManager {
     }
 
     List<OmKeyInfo> keyInfoList = new ArrayList<>(fileStatusList.size());
-    for (OzoneFileStatus fileStatus : fileStatusList) {
-      keyInfoList.add(fileStatus.getKeyInfo());
-    }
+    fileStatusList.stream().map(s -> s.getKeyInfo()).forEach(keyInfoList::add);
     if (args.getLatestVersionLocation()) {
       slimLocationVersion(keyInfoList.toArray(new OmKeyInfo[0]));
     }
@@ -2642,7 +2641,8 @@ public class KeyManagerImpl implements KeyManager {
     iterator.seek(seekDirInDB);
 
     while (iterator.hasNext() && numEntries - countEntries > 0) {
-      OmDirectoryInfo dirInfo = iterator.value().getValue();
+      Table.KeyValue<String, OmDirectoryInfo> entry = iterator.next();
+      OmDirectoryInfo dirInfo = entry.getValue();
       if (deletedKeySet.contains(dirInfo.getPath())) {
         iterator.next(); // move to next entry in the table
         // entry is actually deleted in cache and can exists in DB
@@ -2686,7 +2686,8 @@ public class KeyManagerImpl implements KeyManager {
             iterator = keyTable.iterator();
     iterator.seek(seekKeyInDB);
     while (iterator.hasNext() && numEntries - countEntries > 0) {
-      OmKeyInfo keyInfo = iterator.value().getValue();
+      Table.KeyValue<String, OmKeyInfo> entry = iterator.next();
+      OmKeyInfo keyInfo = entry.getValue();
       if (deletedKeySet.contains(keyInfo.getPath())) {
         iterator.next(); // move to next entry in the table
         // entry is actually deleted in cache and can exists in DB
@@ -3025,7 +3026,8 @@ public class KeyManagerImpl implements KeyManager {
     iterator.seek(seekDirInDB);
 
     while (iterator.hasNext() && numEntries - countEntries > 0) {
-      OmDirectoryInfo dirInfo = iterator.value().getValue();
+      Table.KeyValue<String, OmDirectoryInfo> entry = iterator.next();
+      OmDirectoryInfo dirInfo = entry.getValue();
       if (!OMFileRequest.isImmediateChild(dirInfo.getParentObjectID(),
           parentInfo.getObjectID())) {
         break;
@@ -3060,7 +3062,8 @@ public class KeyManagerImpl implements KeyManager {
     iterator.seek(seekFileInDB);
 
     while (iterator.hasNext() && numEntries - countEntries > 0) {
-      OmKeyInfo fileInfo = iterator.value().getValue();
+      Table.KeyValue<String, OmKeyInfo> entry = iterator.next();
+      OmKeyInfo fileInfo = entry.getValue();
       if (!OMFileRequest.isImmediateChild(fileInfo.getParentObjectID(),
           parentInfo.getObjectID())) {
         break;
