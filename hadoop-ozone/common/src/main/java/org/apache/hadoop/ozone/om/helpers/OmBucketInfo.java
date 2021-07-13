@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.protocol.StorageType;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.OzoneConsts;
@@ -74,6 +75,8 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
    * Bucket encryption key info if encryption is enabled.
    */
   private BucketEncryptionKeyInfo bekInfo;
+
+  private ECReplicationConfig ecReplicationConfig;
 
   private final String sourceVolume;
 
@@ -138,6 +141,63 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
     this.usedNamespace = usedNamespace;
     this.quotaInBytes = quotaInBytes;
     this.quotaInNamespace = quotaInNamespace;
+  }
+
+  /**
+   * Private constructor, constructed via builder.
+   * @param volumeName - Volume name.
+   * @param bucketName - Bucket name.
+   * @param acls - list of ACLs.
+   * @param isVersionEnabled - Bucket version flag.
+   * @param storageType - Storage type to be used.
+   * @param creationTime - Bucket creation time.
+   * @param modificationTime - Bucket modification time.
+   * @param metadata - metadata.
+   * @param bekInfo - bucket encryption key info.
+   * @param sourceVolume - source volume for bucket links, null otherwise
+   * @param sourceBucket - source bucket for bucket links, null otherwise
+   * @param usedBytes - Bucket Quota Usage in bytes.
+   * @param quotaInBytes Bucket quota in bytes.
+   * @param quotaInNamespace Bucket quota in counts.
+   * @param ecReplicationConfig EC replication config.
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  private OmBucketInfo(String volumeName,
+      String bucketName,
+      List<OzoneAcl> acls,
+      boolean isVersionEnabled,
+      StorageType storageType,
+      long creationTime,
+      long modificationTime,
+      long objectID,
+      long updateID,
+      Map<String, String> metadata,
+      BucketEncryptionKeyInfo bekInfo,
+      String sourceVolume,
+      String sourceBucket,
+      long usedBytes,
+      long usedNamespace,
+      long quotaInBytes,
+      long quotaInNamespace,
+      ECReplicationConfig ecReplicationConfig) {
+    this.volumeName = volumeName;
+    this.bucketName = bucketName;
+    this.acls = acls;
+    this.isVersionEnabled = isVersionEnabled;
+    this.storageType = storageType;
+    this.creationTime = creationTime;
+    this.modificationTime = modificationTime;
+    this.objectID = objectID;
+    this.updateID = updateID;
+    this.metadata = metadata;
+    this.bekInfo = bekInfo;
+    this.sourceVolume = sourceVolume;
+    this.sourceBucket = sourceBucket;
+    this.usedBytes = usedBytes;
+    this.usedNamespace = usedNamespace;
+    this.quotaInBytes = quotaInBytes;
+    this.quotaInNamespace = quotaInNamespace;
+    this.ecReplicationConfig = ecReplicationConfig;
   }
 
   /**
@@ -233,6 +293,14 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
    */
   public BucketEncryptionKeyInfo getEncryptionKeyInfo() {
     return bekInfo;
+  }
+
+  /**
+   * Returns bucket EC replication config.
+   * @return EC replication config.
+   */
+  public ECReplicationConfig getEcReplicationConfig() {
+    return ecReplicationConfig;
   }
 
   public String getSourceVolume() {
@@ -369,6 +437,7 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
     private long usedNamespace;
     private long quotaInBytes;
     private long quotaInNamespace;
+    private ECReplicationConfig ecReplicationConfig;
 
     public Builder() {
       //Default values
@@ -486,6 +555,11 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
       return this;
     }
 
+    public Builder setEcReplicationConfig(ECReplicationConfig ecReplConfig) {
+      this.ecReplicationConfig = ecReplConfig;
+      return this;
+    }
+
     /**
      * Constructs the OmBucketInfo.
      * @return instance of OmBucketInfo.
@@ -497,10 +571,17 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
       Preconditions.checkNotNull(isVersionEnabled);
       Preconditions.checkNotNull(storageType);
 
-      return new OmBucketInfo(volumeName, bucketName, acls, isVersionEnabled,
-          storageType, creationTime, modificationTime, objectID, updateID,
-          metadata, bekInfo, sourceVolume, sourceBucket, usedBytes,
-          usedNamespace, quotaInBytes, quotaInNamespace);
+      if (this.ecReplicationConfig != null) {
+        return new OmBucketInfo(volumeName, bucketName, acls, isVersionEnabled,
+            storageType, creationTime, modificationTime, objectID, updateID,
+            metadata, bekInfo, sourceVolume, sourceBucket, usedBytes,
+            usedNamespace, quotaInBytes, quotaInNamespace, ecReplicationConfig);
+      } else {
+        return new OmBucketInfo(volumeName, bucketName, acls, isVersionEnabled,
+            storageType, creationTime, modificationTime, objectID, updateID,
+            metadata, bekInfo, sourceVolume, sourceBucket, usedBytes,
+            usedNamespace, quotaInBytes, quotaInNamespace);
+      }
     }
   }
 
@@ -525,6 +606,9 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
         .setQuotaInNamespace(quotaInNamespace);
     if (bekInfo != null && bekInfo.getKeyName() != null) {
       bib.setBeinfo(OMPBHelper.convert(bekInfo));
+    }
+    if (ecReplicationConfig != null) {
+      bib.setEcReplicationConfig(ecReplicationConfig.toProto());
     }
     if (sourceVolume != null) {
       bib.setSourceVolume(sourceVolume);
@@ -554,6 +638,10 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
         .setQuotaInBytes(bucketInfo.getQuotaInBytes())
         .setUsedNamespace(bucketInfo.getUsedNamespace())
         .setQuotaInNamespace(bucketInfo.getQuotaInNamespace());
+    if (bucketInfo.hasEcReplicationConfig()) {
+      obib.setEcReplicationConfig(
+          new ECReplicationConfig(bucketInfo.getEcReplicationConfig()));
+    }
     if (bucketInfo.hasObjectID()) {
       obib.setObjectID(bucketInfo.getObjectID());
     }
