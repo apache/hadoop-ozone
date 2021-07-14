@@ -313,8 +313,8 @@ public final class PipelinePlacementPolicy extends SCMCommonPlacementPolicy {
     DatanodeDetails anchor = chooseNode(healthyNodes);
     if (anchor != null) {
       results.add(anchor);
-      exclude.add(anchor);
       removePeers(anchor, healthyNodes);
+      exclude.add(anchor);
     } else {
       LOG.warn("Unable to find healthy node for anchor(first) node.");
       throw new SCMException("Unable to find anchor node.",
@@ -333,6 +333,7 @@ public final class PipelinePlacementPolicy extends SCMCommonPlacementPolicy {
       // Rack awareness is detected.
       rackAwareness = true;
       results.add(nextNode);
+      removePeers(nextNode, healthyNodes);
       exclude.add(nextNode);
       if (LOG.isDebugEnabled()) {
         LOG.debug("Second node chosen: {}", nextNode);
@@ -363,6 +364,7 @@ public final class PipelinePlacementPolicy extends SCMCommonPlacementPolicy {
 
       if (pick != null) {
         results.add(pick);
+        removePeers(pick, healthyNodes);
         exclude.add(pick);
         LOG.debug("Remaining node chosen: {}", pick);
       } else {
@@ -400,7 +402,9 @@ public final class PipelinePlacementPolicy extends SCMCommonPlacementPolicy {
     DatanodeDetails selectedNode =
             healthyNodes.get(getRand().nextInt(healthyNodes.size()));
     healthyNodes.remove(selectedNode);
-    removePeers(selectedNode, healthyNodes);
+    if (selectedNode != null) {
+      removePeers(selectedNode, healthyNodes);
+    }
     return selectedNode;
   }
 
