@@ -17,7 +17,10 @@
 
 package org.apache.hadoop.hdds.scm;
 
-import java.util.*;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 import com.google.common.base.Preconditions;
@@ -34,7 +37,6 @@ import org.apache.hadoop.hdds.scm.node.NodeManager;
 import org.apache.hadoop.hdds.scm.node.NodeStatus;
 
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -307,7 +309,8 @@ public abstract class SCMCommonPlacementPolicy implements PlacementPolicy {
    */
   public void removePeers(DatanodeDetails dn,
       List<DatanodeDetails> healthyList) {
-    if (ScmUtils.shouldRemovePeers(conf))
+    if (ScmUtils.shouldRemovePeers(conf)) {
       healthyList.removeAll(nodeManager.getPeerList(dn));
+    }
   }
 }
