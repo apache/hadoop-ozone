@@ -392,6 +392,8 @@ public class TestReplicationManager {
     Assert.assertTrue(datanodeCommandHandler.received(
         SCMCommandProto.Type.deleteContainerCommand,
         replicaOne.getDatanodeDetails()));
+    Assert.assertEquals(currentDeleteCommandCount + 1,
+        replicationManager.getMetrics().getNumDeleteCmdsSent());
 
     // Now we will delete the unhealthy replica from in-memory.
     containerStateManager.removeContainerReplica(id, replicaOne);
@@ -405,6 +407,8 @@ public class TestReplicationManager {
     Assert.assertEquals(currentReplicateCommandCount + 1,
         datanodeCommandHandler.getInvocationCount(
             SCMCommandProto.Type.replicateContainerCommand));
+    Assert.assertEquals(currentReplicateCommandCount + 1,
+        replicationManager.getMetrics().getNumReplicateCmdsSent());
   }
 
   /**
@@ -440,6 +444,8 @@ public class TestReplicationManager {
     Thread.sleep(100L);
     Assert.assertEquals(currentDeleteCommandCount + 1, datanodeCommandHandler
         .getInvocationCount(SCMCommandProto.Type.deleteContainerCommand));
+    Assert.assertEquals(currentDeleteCommandCount + 1,
+        replicationManager.getMetrics().getNumDeleteCmdsSent());
   }
 
   /**
@@ -480,6 +486,8 @@ public class TestReplicationManager {
     Assert.assertTrue(datanodeCommandHandler.received(
         SCMCommandProto.Type.deleteContainerCommand,
         replicaOne.getDatanodeDetails()));
+    Assert.assertEquals(currentDeleteCommandCount + 1,
+        replicationManager.getMetrics().getNumDeleteCmdsSent());
   }
 
   /**
@@ -510,6 +518,8 @@ public class TestReplicationManager {
     Assert.assertEquals(currentReplicateCommandCount + 1,
         datanodeCommandHandler.getInvocationCount(
             SCMCommandProto.Type.replicateContainerCommand));
+    Assert.assertEquals(currentReplicateCommandCount + 1,
+        replicationManager.getMetrics().getNumReplicateCmdsSent());
   }
 
   /**
@@ -587,6 +597,8 @@ public class TestReplicationManager {
     Assert.assertTrue(datanodeCommandHandler.received(
         SCMCommandProto.Type.deleteContainerCommand,
         replicaTwo.getDatanodeDetails()));
+    Assert.assertEquals(currentDeleteCommandCount + 1,
+        replicationManager.getMetrics().getNumDeleteCmdsSent());
 
     containerStateManager.removeContainerReplica(id, replicaTwo);
 
@@ -602,6 +614,8 @@ public class TestReplicationManager {
     Assert.assertEquals(currentReplicateCommandCount + 2,
         datanodeCommandHandler.getInvocationCount(
             SCMCommandProto.Type.replicateContainerCommand));
+    Assert.assertEquals(currentReplicateCommandCount + 2,
+        replicationManager.getMetrics().getNumReplicateCmdsSent());
   }
 
 
@@ -745,6 +759,8 @@ public class TestReplicationManager {
     // scheduled.
     Assert.assertEquals(currentReplicateCommandCount + 1, datanodeCommandHandler
         .getInvocationCount(SCMCommandProto.Type.replicateContainerCommand));
+    Assert.assertEquals(currentReplicateCommandCount + 1,
+        replicationManager.getMetrics().getNumReplicateCmdsSent());
 
     // Now make it so that all containers seem mis-replicated no matter how
     // many replicas. This will test replicas are not scheduled if the new
@@ -767,6 +783,8 @@ public class TestReplicationManager {
     // scheduled.
     Assert.assertEquals(currentReplicateCommandCount, datanodeCommandHandler
         .getInvocationCount(SCMCommandProto.Type.replicateContainerCommand));
+    Assert.assertEquals(currentReplicateCommandCount,
+        replicationManager.getMetrics().getNumReplicateCmdsSent());
   }
 
   @Test
@@ -813,6 +831,8 @@ public class TestReplicationManager {
     // mis-replicated
     Assert.assertEquals(currentDeleteCommandCount + 1, datanodeCommandHandler
         .getInvocationCount(SCMCommandProto.Type.deleteContainerCommand));
+    Assert.assertEquals(currentDeleteCommandCount + 1,
+        replicationManager.getMetrics().getNumDeleteCmdsSent());
 
     Assert.assertTrue(datanodeCommandHandler.received(
         SCMCommandProto.Type.deleteContainerCommand,
@@ -854,6 +874,8 @@ public class TestReplicationManager {
     Thread.sleep(100L);
     Assert.assertEquals(currentDeleteCommandCount + 1, datanodeCommandHandler
         .getInvocationCount(SCMCommandProto.Type.deleteContainerCommand));
+    Assert.assertEquals(currentDeleteCommandCount + 1,
+        replicationManager.getMetrics().getNumDeleteCmdsSent());
   }
 
   @Test
@@ -894,6 +916,8 @@ public class TestReplicationManager {
     Thread.sleep(100L);
     Assert.assertEquals(currentDeleteCommandCount + 2, datanodeCommandHandler
         .getInvocationCount(SCMCommandProto.Type.deleteContainerCommand));
+    Assert.assertEquals(currentDeleteCommandCount + 2,
+        replicationManager.getMetrics().getNumDeleteCmdsSent());
   }
 
   /**
@@ -1061,6 +1085,8 @@ public class TestReplicationManager {
     Thread.sleep(100L);
     Assert.assertEquals(currentDeleteCommandCount + 2, datanodeCommandHandler
         .getInvocationCount(SCMCommandProto.Type.deleteContainerCommand));
+    Assert.assertEquals(currentDeleteCommandCount + 2,
+        replicationManager.getMetrics().getNumDeleteCmdsSent());
     // Get the DECOM and Maint replica and ensure none of them are scheduled
     // for removal
     Set<ContainerReplica> decom =
@@ -1130,6 +1156,8 @@ public class TestReplicationManager {
     Assert.assertEquals(currentReplicateCommandCount + delta,
         datanodeCommandHandler.getInvocationCount(
             SCMCommandProto.Type.replicateContainerCommand));
+    Assert.assertEquals(currentReplicateCommandCount + delta,
+        replicationManager.getMetrics().getNumReplicateCmdsSent());
   }
 
   @After
